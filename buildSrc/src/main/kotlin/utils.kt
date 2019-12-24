@@ -24,6 +24,7 @@ fun Project.kotlinProject() {
         // JUnit 5
         "testImplementation"("org.junit.jupiter:junit-jupiter-api:$junitVersion")
         "testImplementation"("org.junit.jupiter:junit-jupiter-params:$junitVersion")
+        "testImplementation"("io.mockk:mockk:1.9.3")
         "runtime"("org.junit.jupiter:junit-jupiter-engine:$junitVersion")
     }
 }

@@ -1,6 +1,7 @@
-package io.pleo.antaeus.core.services.specs
+package io.pleo.antaeus.app.specs
 
 import io.mockk.every
+import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.pleo.antaeus.core.external.PaymentProvider
 import io.pleo.antaeus.core.services.BillingService
@@ -11,8 +12,10 @@ import io.pleo.antaeus.models.Money
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
+import org.junit.jupiter.api.extension.ExtendWith
 import java.time.LocalDate
 
+@ExtendWith(MockKExtension::class)
 class BillingServiceSpec: AbstractServiceSpec() {
 
     private val paymentService = mockk<PaymentProvider>()
