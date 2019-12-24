@@ -7,16 +7,19 @@ package io.pleo.antaeus.rest
 import io.javalin.Javalin
 import io.javalin.apibuilder.ApiBuilder.get
 import io.javalin.apibuilder.ApiBuilder.path
+import io.pleo.antaeus.core.exceptions.ApplicationException
 import io.pleo.antaeus.core.exceptions.EntityNotFoundException
 import io.pleo.antaeus.core.services.CustomerService
 import io.pleo.antaeus.core.services.InvoiceService
+import io.pleo.antaeus.core.services.PocketService
 import mu.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
 
 class AntaeusRest (
     private val invoiceService: InvoiceService,
-    private val customerService: CustomerService
+    private val customerService: CustomerService,
+    private val pocketService: PocketService
 ) : Runnable {
 
     override fun run() {
@@ -31,12 +34,16 @@ class AntaeusRest (
             exception(EntityNotFoundException::class.java) { _, ctx ->
                 ctx.status(404)
             }
+            exception(ApplicationException::class.java) { _, ctx ->
+                ctx.status(401)
+            }
             // Unexpected exception: return HTTP 500
             exception(Exception::class.java) { e, _ ->
                 logger.error(e) { "Internal server error" }
             }
             // On 404: return message
             error(404) { ctx -> ctx.json("not found") }
+            error(401) { ctx -> ctx.json("bad request") }
         }
 
     init {
@@ -72,6 +79,19 @@ class AntaeusRest (
                        // URL: /rest/v1/customers/{:id}
                        get(":id") {
                            it.json(customerService.fetch(it.pathParam("id").toInt()))
+                       }
+
+                       // URL: /rest/v1/customers/{:id}/pockets/base
+                       get(":id/pockets/base") {
+                           it.json(pocketService.fetchBasePocketFor(it.pathParam("id").toInt()))
+                       }
+
+                   }
+
+                   path("pockets") {
+                       // URL: /rest/v1/customers/{:id}
+                       get(":id") {
+                           it.json(pocketService.fetch(it.pathParam("id").toInt()))
                        }
                    }
                }

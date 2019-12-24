@@ -21,6 +21,8 @@ interface PaymentProvider {
         Throws:
           `CustomerNotFoundException`: when no customer has the given id.
           `CurrencyMismatchException`: when the currency does not match the customer account.
+          `PocketCurrencyMismatchException`: when the currency does match the customer account, but customer don't have pocket in that currency.
+          `InvoiceAlreadyChargedException`: when the invoice was already charged for customer account in external system. (example transaction exists)
           `NetworkException`: when a network error happens.
      */
 

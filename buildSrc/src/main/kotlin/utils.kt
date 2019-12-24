@@ -12,6 +12,7 @@ fun Project.kotlinProject() {
     dependencies {
         // Kotlin libs
         "implementation"(kotlin("stdlib-jdk8"))
+        "implementation"("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.3")
 
         // Logging
         "implementation"("org.slf4j:slf4j-simple:1.7.25")
@@ -32,7 +33,10 @@ fun Project.kotlinProject() {
  */
 fun Project.dataLibs() {
     dependencies {
-        "implementation"("org.jetbrains.exposed:exposed:0.12.1")
+        "implementation"("org.jetbrains.exposed:exposed-core:0.19.3")
+        "implementation"("org.jetbrains.exposed:exposed-dao:0.19.3")
+        "implementation"("org.jetbrains.exposed:exposed-jdbc:0.19.3")
+        "implementation"("org.jetbrains.exposed:exposed-java-time:0.19.3")
         "implementation"("org.xerial:sqlite-jdbc:3.25.2")
     }
 }

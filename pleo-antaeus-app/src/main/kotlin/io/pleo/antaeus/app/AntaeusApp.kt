@@ -11,9 +11,10 @@ import getPaymentProvider
 import io.pleo.antaeus.core.services.BillingService
 import io.pleo.antaeus.core.services.CustomerService
 import io.pleo.antaeus.core.services.InvoiceService
-import io.pleo.antaeus.data.AntaeusDal
-import io.pleo.antaeus.data.CustomerTable
-import io.pleo.antaeus.data.InvoiceTable
+import io.pleo.antaeus.core.services.PocketService
+import io.pleo.antaeus.data.*
+import io.pleo.antaeus.job.AntaeusJobRunner
+import io.pleo.antaeus.job.BillingJob
 import io.pleo.antaeus.rest.AntaeusRest
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
@@ -26,7 +27,7 @@ import java.sql.Connection
 
 fun main() {
     // The tables to create in the database.
-    val tables = arrayOf(InvoiceTable, CustomerTable)
+    val tables = arrayOf(InvoiceTable, CustomerTable, PocketTable)
 
     // Connect to the database and create the needed tables. Drop any existing data.
     val db = Database
@@ -43,7 +44,8 @@ fun main() {
         }
 
     // Set up data access layer.
-    val dal = AntaeusDal(db = db)
+    val connectionProvider = AntaeusConnectionProvider(db)
+    val dal = AntaeusDal(connectionProvider)
 
     // Insert example data in the database.
     setupInitialData(dal = dal)
@@ -54,14 +56,28 @@ fun main() {
     // Create core services
     val invoiceService = InvoiceService(dal = dal)
     val customerService = CustomerService(dal = dal)
+    val pocketService = PocketService(dal = dal)
 
     // This is _your_ billing service to be included where you see fit
-    val billingService = BillingService(paymentProvider = paymentProvider)
+    val billingService = BillingService(
+        connectionProvider = connectionProvider,
+        paymentProvider = paymentProvider,
+        invoiceService = invoiceService)
 
     // Create REST web service
     AntaeusRest(
         invoiceService = invoiceService,
-        customerService = customerService
+        customerService = customerService,
+        pocketService = pocketService
+    ).run()
+
+    val jobs = listOf(
+        BillingJob(billingService = billingService)
+    )
+
+    // Create Job service
+    AntaeusJobRunner(
+        jobs = jobs
     ).run()
 }
 
