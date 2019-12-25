@@ -52,7 +52,10 @@ fun main() {
     ).run()
 
     val jobs = listOf(
-        BillingJob(billingService = billingService)
+        BillingJob(
+            invoiceService = invoiceService,
+            billingService = billingService
+        )
     )
 
     // Create Job service

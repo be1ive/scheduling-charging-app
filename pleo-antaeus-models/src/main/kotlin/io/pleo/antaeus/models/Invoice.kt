@@ -24,13 +24,24 @@ data class Invoice(
         return isIn(InvoiceStatus.PAID)
     }
 
+    fun process() : Invoice {
+        check(status == InvoiceStatus.PENDING) {
+            "Invoice should be in PENDING state"
+        }
+        return copy(status = InvoiceStatus.PROCESSING)
+    }
+
     fun pay() : Invoice {
-        check(status == InvoiceStatus.PENDING) { "Invoice should be in PENDING state" }
+        check(status == InvoiceStatus.PENDING || status == InvoiceStatus.PROCESSING) {
+            "Invoice should be in PENDING or PROCESSING state"
+        }
         return copy(status = InvoiceStatus.PAID, paidAt = Instant.now())
     }
 
     fun cancel(): Invoice {
-        check(status == InvoiceStatus.PENDING) { "Invoice should be in PENDING state" }
+        check(status == InvoiceStatus.PENDING || status == InvoiceStatus.PROCESSING) {
+            "Invoice should be in PENDING or PROCESSING state"
+        }
         return copy(status = InvoiceStatus.CANCELLED)
     }
 

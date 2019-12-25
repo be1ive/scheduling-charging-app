@@ -14,51 +14,44 @@ class BillingService(
     private val paymentProvider: PaymentProvider,
     private val invoiceService: InvoiceService
 ) {
-    private val maxRetries = 3
 
-    fun chargeAll() {
-        val invoices = invoiceService.fetchUnpaidInvoicesAt(LocalDate.now())
-        invoices.forEach {
-            try {
-                connectionProvider.inTransaction {
-                    invoiceService.fetch(it.id)
-                        .takeIf { it.isPending() }
-                        ?.let { invoice ->
-                            tryCharge(invoice)
-                                .takeIf { it }
-                                ?.let { payAndCreateNext(invoice) }
+    fun bill(invoice: Invoice) {
+        connectionProvider.inTransaction {
+            invoiceService.fetch(invoice.id)
+                .takeIf { it.isPending() }
+                ?.let { invoice ->
+                    process(invoice).also {
+                        if (tryCharge(invoice)) {
+                            payAndCreateNext(invoice)
+                        } else {
+                            cancel(invoice)
                         }
+                    }
                 }
-            } catch (e: Exception) {
-                logger.error(e) { "Unhandled exception while charging for invoice ${it.id}" }
-            }
         }
     }
 
     private fun tryCharge(invoice: Invoice): Boolean {
-        var tries = 0
-        while (tries++ <= maxRetries) {
-            try {
-                return paymentProvider.charge(invoice).also {
-                    if (!it) logger.warn { "Customer insufficient funds to pay for invoice ${invoice.id}" }
-                }
-            } catch (e: InvoiceAlreadyChargedException) {
-                logger.warn { "Customer was already charged for invoice ${invoice.id}" }
-                return true
-            } catch (e: CustomerNotFoundException) {
-                logger.error(e) { "Customer was not found for invoice ${invoice.id}" }
-                return false
-            } catch (e: CurrencyMismatchException) {
-                logger.error(e) { "Customer currency not matching invoice ${invoice.id}" }
-                return false
-            } catch (e: PocketCurrencyMismatchException) {
-                logger.error(e) { "Customer pocket currency not matching invoice ${invoice.id}" }
-                return false
-            } catch (e: NetworkException) {
-                logger.warn { "Network issue while charging for invoice ${invoice.id}" }
+        return try {
+            if (paymentProvider.charge(invoice)) {
+                true
+            } else {
+                logger.warn { "Customer insufficient funds to pay for invoice ${invoice.id}" }
+                throw CustomerInsufficientFundsException(invoice.customerId)
             }
+        } catch (e: InvoiceAlreadyChargedException) {
+            logger.warn { "Customer was already charged for invoice ${invoice.id}" }
+            true
+        } catch (e: CustomerNotFoundException) {
+            logger.error(e) { "Customer was not found for invoice ${invoice.id}" }
+            false
         }
-        return false
+    }
+
+    private fun process(invoice: Invoice) {
+        // update current invoice to process
+        invoiceService.update(
+            invoice.process())
     }
 
     private fun payAndCreateNext(invoice: Invoice) {
@@ -73,5 +66,11 @@ class BillingService(
                 .withDayOfMonth(1)
                 .plusMonths(1),
             invoice.customerId)
+    }
+
+    private fun cancel(invoice: Invoice) {
+        // update current invoice to cancel
+        invoiceService.update(
+            invoice.cancel())
     }
 }

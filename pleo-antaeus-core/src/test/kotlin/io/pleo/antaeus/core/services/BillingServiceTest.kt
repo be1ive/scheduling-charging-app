@@ -1,19 +1,19 @@
 package io.pleo.antaeus.core.services
 
-import io.mockk.*
+import io.mockk.Called
+import io.mockk.every
 import io.mockk.junit5.MockKExtension
+import io.mockk.mockk
+import io.mockk.verify
+import io.pleo.antaeus.core.exceptions.CustomerInsufficientFundsException
 import io.pleo.antaeus.core.exceptions.CustomerNotFoundException
 import io.pleo.antaeus.core.exceptions.InvoiceAlreadyChargedException
-import io.pleo.antaeus.core.exceptions.NetworkException
 import io.pleo.antaeus.core.external.PaymentProvider
-import io.pleo.antaeus.data.ConnectionProvider
 import io.pleo.antaeus.data.mock.MockConnectionProvider
 import io.pleo.antaeus.models.Currency
 import io.pleo.antaeus.models.Invoice
 import io.pleo.antaeus.models.InvoiceStatus
 import io.pleo.antaeus.models.Money
-import net.bytebuddy.matcher.ElementMatchers.any
-import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -55,9 +55,6 @@ class BillingServiceTest {
         val invoice = anInvoice(InvoiceStatus.PENDING)
 
         every {
-            invoiceService.fetchUnpaidInvoicesAt(any())
-        } returns listOf(invoice)
-        every {
             invoiceService.fetch(invoice.id)
         } returns invoice
         every {
@@ -65,7 +62,7 @@ class BillingServiceTest {
         } returns true
 
         // when
-        billingService.chargeAll()
+        billingService.bill(invoice)
 
         // then
         verify {
@@ -85,7 +82,8 @@ class BillingServiceTest {
         verify {
             invoiceService.update(capture(updated))
         }
-        assertEquals(invoice.id, updated.first().id)
+        assertEquals(invoice.id, updated.last().id)
+        assertEquals(InvoiceStatus.PAID, updated.last().status)
     }
 
     @Test
@@ -94,9 +92,6 @@ class BillingServiceTest {
         val invoice = anInvoice(InvoiceStatus.PAID)
 
         every {
-            invoiceService.fetchUnpaidInvoicesAt(any())
-        } returns listOf(invoice)
-        every {
             invoiceService.fetch(invoice.id)
         } returns invoice
         every {
@@ -104,7 +99,7 @@ class BillingServiceTest {
         } returns true
 
         // when
-        billingService.chargeAll()
+        billingService.bill(invoice)
 
         // then
         verify {
@@ -126,9 +121,6 @@ class BillingServiceTest {
         val invoice = anInvoice(InvoiceStatus.PENDING)
 
         every {
-            invoiceService.fetchUnpaidInvoicesAt(any())
-        } returns listOf(invoice)
-        every {
             invoiceService.fetch(invoice.id)
         } returns invoice
         every {
@@ -136,7 +128,7 @@ class BillingServiceTest {
         } throws InvoiceAlreadyChargedException(invoice.id, invoice.customerId)
 
         // when
-        billingService.chargeAll()
+        billingService.bill(invoice)
 
         // then
         verify {
@@ -156,17 +148,15 @@ class BillingServiceTest {
         verify {
             invoiceService.update(capture(updated))
         }
-        assertEquals(invoice.id, updated.first().id)
+        assertEquals(invoice.id, updated.last().id)
+        assertEquals(InvoiceStatus.PAID, updated.last().status)
     }
 
     @Test
-    fun `will not pay invoice and try charge customer if invoice is pending and customer has not enough funds`() {
+    fun `will throw if invoice is pending and customer has not enough funds`() {
         // given
         val invoice = anInvoice(InvoiceStatus.PENDING)
 
-        every {
-            invoiceService.fetchUnpaidInvoicesAt(any())
-        } returns listOf(invoice)
         every {
             invoiceService.fetch(invoice.id)
         } returns invoice
@@ -174,8 +164,26 @@ class BillingServiceTest {
             paymentProvider.charge(invoice)
         } returns false
 
+        // when / then
+        assertThrows<CustomerInsufficientFundsException> {
+            billingService.bill(invoice)
+        }
+    }
+
+    @Test
+    fun `will cancel invoice if invoice is pending and customer was not found`() {
+        // given
+        val invoice = anInvoice(InvoiceStatus.PENDING)
+
+        every {
+            invoiceService.fetch(invoice.id)
+        } returns invoice
+        every {
+            paymentProvider.charge(invoice)
+        } throws CustomerNotFoundException(invoice.customerId)
+
         // when
-        billingService.chargeAll()
+        billingService.bill(invoice)
 
         // then
         verify {
@@ -186,49 +194,12 @@ class BillingServiceTest {
             invoiceService.create(any(), any(), any())
         }
 
-        verify(exactly = 0) {
-            invoiceService.update(any())
-        }
-
-    }
-
-    @Test
-    fun `will pay invoice and charge customer if invoice is pending and customer was not charged and network problem happened`() {
-        // given
-        val invoice = anInvoice(InvoiceStatus.PENDING)
-
-        every {
-            invoiceService.fetchUnpaidInvoicesAt(any())
-        } returns listOf(invoice)
-        every {
-            invoiceService.fetch(invoice.id)
-        } returns invoice
-        every {
-            paymentProvider.charge(invoice)
-        } throws NetworkException() andThen true
-
-        // when
-        billingService.chargeAll()
-
-        // then
-        verify {
-            paymentProvider.charge(invoice)
-        }
-
-        verify {
-            invoiceService.create(
-                invoice.amount,
-                invoice.date
-                    .withDayOfMonth(1)
-                    .plusMonths(1),
-                invoice.customerId)
-        }
-
         val updated = mutableListOf<Invoice>()
         verify {
             invoiceService.update(capture(updated))
         }
-        assertEquals(invoice.id, updated.first().id)
+        assertEquals(invoice.id, updated.last().id)
+        assertEquals(InvoiceStatus.CANCELLED, updated.last().status)
     }
 
     private fun anInvoice(status: InvoiceStatus) : Invoice {

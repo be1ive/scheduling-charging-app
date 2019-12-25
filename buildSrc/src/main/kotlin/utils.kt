@@ -25,6 +25,7 @@ fun Project.kotlinProject() {
         "testImplementation"("org.junit.jupiter:junit-jupiter-api:$junitVersion")
         "testImplementation"("org.junit.jupiter:junit-jupiter-params:$junitVersion")
         "testImplementation"("io.mockk:mockk:1.9.3")
+        "testImplementation"("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.3")
         "runtime"("org.junit.jupiter:junit-jupiter-engine:$junitVersion")
     }
 }
