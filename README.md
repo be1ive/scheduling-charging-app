@@ -7,11 +7,11 @@ The solution itself is to run periodic job (every 30 minutes for example, it can
 
 ## Some thoughts, simplifications and limitations:
 
- ⁃ I would almost never use serializable isolation in production, here I use it for operation consistency for billing operation (decrease chance to charge customer twice). By consistency I mean it is no possible to have paid invoice and not charge customer. Despite that operation is consistent it is not atomic and there is a minor chance to have situation when we charge customer but invoice still not paid (db issue just after charge method). In that case I would expect external payment provider should either to have method for checking that or to throw exception that invoice was already charged (this can be implemented storing invoice id in transaction on external payment system side)
+- I would almost never use serializable isolation in production, here I use it for operation consistency for billing operation (decrease chance to charge customer twice). By consistency I mean it is no possible to have paid invoice and not charge customer. Despite that operation is consistent it is not atomic and there is a minor chance to have situation when we charge customer but invoice still not paid (db issue just after charge method). In that case I would expect external payment provider should either to have method for checking that or to throw exception that invoice was already charged (this can be implemented storing invoice id in transaction on external payment system side)
 
- ⁃ I didn’t implement graceful shutdown for daemon jobs and job runner, but I would do so in production
+- I didn’t implement graceful shutdown for daemon jobs and job runner, but I would do so in production
 
- ⁃ I have added dependency to core module in job module, but in production I would have client for rest service and call methods for billing through it in job module.
+- I have added dependency to core module in job module, but in production I would have client for rest service and call methods for billing through it in job module.
  
  
 ## Implementation
