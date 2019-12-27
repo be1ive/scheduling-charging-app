@@ -11,6 +11,8 @@ The solution itself is to run periodic job (every 30 minutes for example, it can
 
 - I didn’t implement graceful shutdown for daemon jobs and job runner, but I would do so in production
 
+- I didn’t implement pagination or streaming for fetching invoices to not load them all to memmory, but I would do so in production
+
 - I have added dependency to core module in job module, but in production I would have client for rest service and call methods for billing through it in job module.
  
  
